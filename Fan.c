@@ -36,7 +36,7 @@
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
 //char auth[] = "5WKqO0pR3K-BmVbOdZG6fez_TZK2lxqu";
-char auth[] = "oMj4Kx51iruS37_b0RrqWs33g4khBF6T";
+char auth[] = "pb9oPmS95HcyrJ93ZYT6PugvOF07e6Ed";
 
 // Your WiFi credentials.
 // Set password to "" for open networks.
@@ -45,7 +45,11 @@ char pass[] = "1234567891";
 
 String Exception = "Status: OK";
 bool FanState = false;
-#define FAN_PIN GPIO_NUM_13
+#define FAN_PIN GPIO_NUM_2
+
+bool HandControl = false;
+int CounterTick = 0;
+int SettingCounterMax = 30 * 60;
 
 typedef struct SettingTimer
 {
@@ -59,7 +63,7 @@ typedef struct SettingTimeGroup
   SettingTimer StartTime, StopTime;
 };
 
-SettingTimeGroup Setting[7];
+SettingTimeGroup Setting[5];
 BlynkTimer timer;
 WidgetRTC rtc;
 
@@ -78,58 +82,72 @@ BLYNK_WRITE(V1)
   Serial.println("Write to V1");
   Serial.println(uptime);
   if (uptime == 0)
+  {
     FanState = false;
+    HandControl = false;
+    Exception = "Hand control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
+    Blynk.virtualWrite(V0, Exception);
+  }
   else
   {
     FanState = true;
+    HandControl = true;
+    CounterTick = 0;
+    Exception = "Hand control Start: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
+    Blynk.virtualWrite(V0, Exception);
   }
 }
 
 BLYNK_WRITE(V2)
 {
   TimeInputParam t(param);
-  GetSettingTime(t,0);
+  GetSettingTime(t, 0);
 }
 
 BLYNK_WRITE(V3)
 {
   TimeInputParam t(param);
-  GetSettingTime(t,1);
+  GetSettingTime(t, 1);
 }
 
 BLYNK_WRITE(V4)
 {
   TimeInputParam t(param);
-  GetSettingTime(t,2);
+  GetSettingTime(t, 2);
 }
 
 BLYNK_WRITE(V5)
 {
   TimeInputParam t(param);
-  GetSettingTime(t,3);
+  GetSettingTime(t, 3);
 }
 
 BLYNK_WRITE(V6)
 {
   TimeInputParam t(param);
-  GetSettingTime(t,4);
+  GetSettingTime(t, 4);
 }
 
 BLYNK_WRITE(V7)
 {
-   TimeInputParam t(param);
-  GetSettingTime(t,5);
+  int counterSet = param.asInt();
+  if (counterSet > 0 && counterSet < 1000)
+  {
+    SettingCounterMax = counterSet * 60;
+    Exception = "Set Counter: " + String(counterSet) + "(min) : " + "OK";
+    Blynk.virtualWrite(V0, Exception);
+  }
+  else
+  {
+    Exception = "Set Counter: Error";
+    Blynk.virtualWrite(V0, Exception);
+  }
 }
 
-BLYNK_WRITE(V8)
+void GetSettingTime(TimeInputParam &t, int index)
 {
-  TimeInputParam t(param);
-  GetSettingTime(t,6);
-}
-
-void GetSettingTime(TimeInputParam& t, int index)
-{
-   Serial.print("Setting :");Serial.println(index);
+  Serial.print("Setting :");
+  Serial.println(index);
 
   if (t.hasStartTime())
   {
@@ -145,7 +163,7 @@ void GetSettingTime(TimeInputParam& t, int index)
     Setting[index].StopTime.hour = t.getStopHour();
     Setting[index].StopTime.min = t.getStopMinute();
     Setting[index].StopTime.sec = t.getStopSecond();
-  } 
+  }
 }
 
 void TimerCompare()
@@ -154,7 +172,10 @@ void TimerCompare()
   uint8_t currentM = minute();
   uint8_t currentS = second();
 
-  for (int i = 0; i < 7; i++)
+  if (HandControl)
+    return;
+
+  for (int i = 0; i < 5; i++)
   {
     if ((Setting[i].StartTime.hour == currentH) &&
         (Setting[i].StartTime.min == currentM) &&
@@ -179,7 +200,7 @@ void TimerCompare()
       if (FanState)
       {
         FanState = false;
-        Exception = "Stop at:" +  String(currentH) + ":" + String(currentM) + ":" + String(currentS) + " - " +
+        Exception = "Stop at:" + String(currentH) + ":" + String(currentM) + ":" + String(currentS) + " - " +
                     String(day()) + " " + String(month()) + " " + String(year());
         Blynk.virtualWrite(V0, Exception);
         Blynk.virtualWrite(V1, 0);
@@ -191,6 +212,15 @@ void TimerCompare()
 // Digital clock display of the time
 void ClockTick()
 {
+  CounterTick++;
+  if ((CounterTick >= SettingCounterMax) && HandControl)
+  {
+    FanState = false;
+    HandControl = false;
+    Exception = "Hand control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
+    Blynk.virtualWrite(V0, Exception);
+    Blynk.virtualWrite(V1, 0);
+  }
   // You can call hour(), minute(), ... at any time
   // Please see Time library examples for details
   String currentTime = String(hour()) + ":" + minute() + ":" + second();
@@ -212,7 +242,7 @@ void setup()
   Blynk.begin(auth, ssid, pass);
   setSyncInterval(10 * 60); // Sync interval in seconds (10 minutes)
   // Display digital clock every 10 seconds
-  timer.setInterval(5000L, ClockTick);
+  timer.setInterval(1000L, ClockTick);
 
   Blynk.virtualWrite(V1, 0);
 
