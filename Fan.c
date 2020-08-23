@@ -50,6 +50,7 @@ bool FanState = false;
 bool HandControl = false;
 int CounterTick = 0;
 int SettingCounterMax = 30 * 60;
+int CheckConnectionCounter = 0;
 
 typedef struct SettingTimer
 {
@@ -232,8 +233,22 @@ void ClockTick()
   Serial.println();
 
   TimerCompare();
+
+  if (++CheckConnectionCounter >= 5)
+  {
+    CheckConnectionCounter=0;
+    if (Blynk.connected() == false)
+    {
+      checkConnection();
+    }
+  }
 }
 
+void checkConnection()
+{
+  Serial.println("Restart Blynk IO");
+  Blynk.begin(auth, ssid, pass);
+}
 void setup()
 {
   // Debug console
@@ -253,6 +268,15 @@ void setup()
 
 void loop()
 {
+//  if(Serial.available()>0)
+//  {
+//    String s = Serial.readString();
+//    if(s.indexOf("dis")>-1)
+//    {
+//      Blynk.disconnect();
+//      WiFi.disconnect();
+//    }
+//  }
   Blynk.run();
   timer.run();
 
