@@ -141,7 +141,7 @@ BLYNK_WRITE(V7)
   {
     AlarmSettingTime = counterSet;
     SettingCounterMax = counterSet * 60;
-    Exception = "Set Counter: " + String(counterSet) + "(min) : " + "OK";
+    Exception = "Set Counter: " + String(counterSet) + "(min/sec) : " + "OK";
     Blynk.virtualWrite(V0, Exception);
   }
   else
@@ -246,7 +246,7 @@ void ClockTick()
     AlarmControl = false;
     Exception = "Alarm control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
     Blynk.virtualWrite(V0, Exception);
-    Blynk.virtualWrite(ALARM_PIN, 0);
+    Blynk.virtualWrite(ALARM_BLYNK_PIN, 0);
   }
 
   if ((CounterTick >= SettingCounterMax) && HandControl)
@@ -318,13 +318,8 @@ void loop()
   Blynk.run();
   timer.run();
 
-  if (FanState)
-    digitalWrite(FAN_PIN, LOW);
-  else
-    digitalWrite(FAN_PIN, HIGH);
-
-  if (AlarmControl)
+  if (AlarmControl || FanState )
     digitalWrite(ALARM_PIN, LOW);
-  else
+  else 
     digitalWrite(ALARM_PIN, HIGH);
 }
