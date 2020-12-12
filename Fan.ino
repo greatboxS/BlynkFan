@@ -54,7 +54,7 @@ int CounterTick = 0;
 int SettingCounterMax = 30 * 60;
 int AlarmSettingTime = 10;
 bool AlarmControl = false;
-bool AlarmCounterTick = 0;
+int AlarmCounterTick = 0;
 int CheckConnectionCounter = 0;
 
 typedef struct SettingTimer
@@ -240,8 +240,8 @@ void TimerCompare()
 void ClockTick()
 {
   CounterTick++;
-  ALarmCounterTick++;
-  if (AlarmControl && ALarmCounterTick >= AlarmSettingTime)
+  AlarmCounterTick++;
+  if (AlarmControl && (AlarmCounterTick >= AlarmSettingTime))
   {
     AlarmControl = false;
     Exception = "Alarm control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
