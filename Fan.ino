@@ -38,6 +38,7 @@
 //char auth[] = "5WKqO0pR3K-BmVbOdZG6fez_TZK2lxqu";
 char auth[] = "pb9oPmS95HcyrJ93ZYT6PugvOF07e6Ed";
 
+#define ALARM_BLYNK_PIN V10
 // Your WiFi credentials.
 // Set password to "" for open networks.
 char ssid[] = "THU HANG";
@@ -46,10 +47,14 @@ char pass[] = "1234567891";
 String Exception = "Status: OK";
 bool FanState = false;
 #define FAN_PIN GPIO_NUM_2
+#define ALARM_PIN GPIO_NUM_2
 
 bool HandControl = false;
 int CounterTick = 0;
 int SettingCounterMax = 30 * 60;
+int AlarmSettingTime = 10;
+bool AlarmControl = false;
+bool AlarmCounterTick = 0;
 int CheckConnectionCounter = 0;
 
 typedef struct SettingTimer
@@ -134,6 +139,7 @@ BLYNK_WRITE(V7)
   int counterSet = param.asInt();
   if (counterSet > 0 && counterSet < 1000)
   {
+    AlarmSettingTime = counterSet;
     SettingCounterMax = counterSet * 60;
     Exception = "Set Counter: " + String(counterSet) + "(min) : " + "OK";
     Blynk.virtualWrite(V0, Exception);
@@ -141,6 +147,26 @@ BLYNK_WRITE(V7)
   else
   {
     Exception = "Set Counter: Error";
+    Blynk.virtualWrite(V0, Exception);
+  }
+}
+
+BLYNK_WRITE(ALARM_BLYNK_PIN)
+{
+  int uptime = param.asInt();
+  Serial.println("Write to V1");
+  Serial.println(uptime);
+  if (uptime == 0)
+  {
+    AlarmControl = false;
+    Exception = "Alarm control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
+    Blynk.virtualWrite(V0, Exception);
+  }
+  else
+  {
+    AlarmControl = true;
+    AlarmCounterTick = 0;
+    Exception = "Alarm control Start: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
     Blynk.virtualWrite(V0, Exception);
   }
 }
@@ -214,6 +240,15 @@ void TimerCompare()
 void ClockTick()
 {
   CounterTick++;
+  ALarmCounterTick++;
+  if (AlarmControl && ALarmCounterTick >= AlarmSettingTime)
+  {
+    AlarmControl = false;
+    Exception = "Alarm control Stop: " + String(hour()) + ":" + String(minute()) + ":" + String(second());
+    Blynk.virtualWrite(V0, Exception);
+    Blynk.virtualWrite(ALARM_PIN, 0);
+  }
+
   if ((CounterTick >= SettingCounterMax) && HandControl)
   {
     FanState = false;
@@ -236,7 +271,7 @@ void ClockTick()
 
   if (++CheckConnectionCounter >= 5)
   {
-    CheckConnectionCounter=0;
+    CheckConnectionCounter = 0;
     if (Blynk.connected() == false)
     {
       checkConnection();
@@ -261,22 +296,25 @@ void setup()
 
   Blynk.virtualWrite(V1, 0);
 
+  Blynk.virtualWrite(ALARM_BLYNK_PIN, 0);
+
   Blynk.virtualWrite(V0, Exception);
 
   pinMode(FAN_PIN, OUTPUT);
+  pinMode(ALARM_PIN, OUTPUT);
 }
 
 void loop()
 {
-//  if(Serial.available()>0)
-//  {
-//    String s = Serial.readString();
-//    if(s.indexOf("dis")>-1)
-//    {
-//      Blynk.disconnect();
-//      WiFi.disconnect();
-//    }
-//  }
+  //  if(Serial.available()>0)
+  //  {
+  //    String s = Serial.readString();
+  //    if(s.indexOf("dis")>-1)
+  //    {
+  //      Blynk.disconnect();
+  //      WiFi.disconnect();
+  //    }
+  //  }
   Blynk.run();
   timer.run();
 
@@ -284,4 +322,9 @@ void loop()
     digitalWrite(FAN_PIN, LOW);
   else
     digitalWrite(FAN_PIN, HIGH);
+
+  if (AlarmControl)
+    digitalWrite(ALARM_PIN, LOW);
+  else
+    digitalWrite(ALARM_PIN, HIGH);
 }
